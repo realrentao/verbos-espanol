@@ -729,20 +729,35 @@ UI_JS = r"""
       return '<button class="idxbtn'+(present[L]?'':' off')+'" data-l="'+L+'">'+L+'</button>';
     }).join('');
   }
+  var selEl=null,listTimer=null;
+  function itemHtml(v){
+    var sel=(selected&&selected.i===v.i)?' sel':'';
+    return '<div class="vitem'+sel+'" data-inf="'+v.i+'">'+
+      '<span class="vinf">'+v.i+'</span>'+
+      '<span class="vcn">'+v.c+'</span>'+
+      (v.ir?'<span class="tag irr">不规则</span>':'<span class="tag reg">规则</span>')+
+      '</div>';
+  }
   function renderList(){
     var vs=verbsFiltered();
     countEl.textContent=vs.length+' / '+VERBS.length+' 个动词';
-    listEl.innerHTML=vs.map(function(v){
-      var sel=(selected&&selected.i===v.i)?' sel':'';
-      return '<div class="vitem'+sel+'" data-inf="'+v.i+'">'+
-        '<span class="vinf">'+v.i+'</span>'+
-        '<span class="vcn">'+v.c+'</span>'+
-        (v.ir?'<span class="tag irr">不规则</span>':'<span class="tag reg">规则</span>')+
-        '</div>';
-    }).join('')||'<div class="empty">没有匹配的动词</div>';
-    listEl.querySelectorAll('.vitem').forEach(function(el){
-      el.addEventListener('click',function(){select(el.getAttribute('data-inf'));});
-    });
+    if(listTimer){clearTimeout(listTimer);listTimer=null;}
+    if(!vs.length){listEl.innerHTML='<div class="empty">没有匹配的动词</div>';selEl=null;return;}
+    var CH=150;
+    listEl.innerHTML=vs.slice(0,CH).map(itemHtml).join('');
+    if(vs.length>CH){
+      var i=CH;
+      (function step(){
+        if(i>=vs.length)return;
+        var end=Math.min(i+CH,vs.length);
+        var frag=document.createElement('div');
+        frag.innerHTML=vs.slice(i,end).map(itemHtml).join('');
+        while(frag.firstChild)listEl.appendChild(frag.firstChild);
+        i=end;
+        listTimer=setTimeout(step,1);
+      })();
+    }
+    selEl=listEl.querySelector('.vitem.sel');
   }
   function tenseLabel(key){
     var m={
@@ -795,7 +810,9 @@ UI_JS = r"""
       '<div class="impcell"><span class="ilab">过去分词 Participio</span><b>'+c.pp+'</b></div>'+
       '</div></section>';
     detailEl.innerHTML=html;
-    renderList();
+    if(selEl)selEl.classList.remove('sel');
+    selEl=listEl.querySelector('.vitem[data-inf="'+inf+'"]');
+    if(selEl)selEl.classList.add('sel');
     detailEl.scrollTop=0;
   }
   idxEl.addEventListener('click',function(e){
@@ -806,8 +823,11 @@ UI_JS = r"""
     renderList();
   });
   searchEl.addEventListener('input',function(){curQuery=searchEl.value;renderList();});
-  renderIndex();renderList();
-  select('hablar');
+  listEl.addEventListener('click',function(e){
+    var el=e.target.closest('.vitem');
+    if(el)select(el.getAttribute('data-inf'));
+  });
+  renderIndex();select('hablar');renderList();
 })();
 """
 
@@ -873,6 +893,8 @@ header .sub .brand{font-size:16px;font-weight:800;letter-spacing:2px;color:#fff;
 
 def main_html():
     import json as _j, base64 as _b64
+    def minjs(s):
+        return "\n".join(line.strip() for line in s.splitlines() if line.strip())
     _logo_path = os.path.join(HERE, "assets", "logo-piano-small.jpg")
     if os.path.exists(_logo_path):
         with open(_logo_path, "rb") as _f:
@@ -891,6 +913,7 @@ def main_html():
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>西班牙语动词变位表 · Tabla de Conjugación</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Crect%20width='100'%20height='100'%20rx='22'%20fill='%23C60B1E'/%3E%3Ctext%20x='50'%20y='70'%20font-size='54'%20text-anchor='middle'%20fill='%23FFC400'%20font-family='Arial'%20font-weight='bold'%3EES%3C/text%3E%3C/svg%3E">
 <style>__CSS__</style>
 </head>
 <body>
@@ -919,7 +942,7 @@ __UI__
 </script>
 </body>
 </html>"""
-    html = html.replace("__CSS__", CSS).replace("__DATA__", data_js).replace("__ENGINE__", ENGINE_JS).replace("__UI__", UI_JS).replace("__LOGO__", logo_b64)
+    html = html.replace("__CSS__", CSS).replace("__DATA__", data_js).replace("__ENGINE__", minjs(ENGINE_JS)).replace("__UI__", minjs(UI_JS)).replace("__LOGO__", logo_b64)
     with open(OUT, "w", encoding="utf-8") as f:
         f.write(html)
     print("HTML 写入:", OUT, os.path.getsize(OUT), "bytes")
