@@ -375,6 +375,12 @@ html+='<section class="mood imp"><h3 class="mhead">非人称形式 Formas impers
 '<div class="impcell"><span class="ilab">过去分词 Participio</span><b>'+c.pp+'</b></div>'+
 '</div></section>';
 detailEl.innerHTML=html;
+(function alignLabels(){
+var ts=detailEl.querySelectorAll('.tper'),max=0;
+ts.forEach(function(t){t.style.width='auto';});
+ts.forEach(function(t){if(t.scrollWidth>max)max=t.scrollWidth;});
+ts.forEach(function(t){t.style.width=max+'px';});
+})();
 if(selEl)selEl.classList.remove('sel');
 selEl=listEl.querySelector('.vitem[data-inf="'+inf+'"]');
 if(selEl)selEl.classList.add('sel');
